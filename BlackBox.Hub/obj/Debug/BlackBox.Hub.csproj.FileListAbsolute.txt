@@ -1,0 +1,7 @@
+c:\trunk\BlackBox\BlackBox.Hub\bin\Debug\BlackBox.Hub.dll
+c:\trunk\BlackBox\BlackBox.Hub\bin\Debug\BlackBox.Hub.pdb
+c:\trunk\BlackBox\BlackBox.Hub\bin\Debug\BlackBox.Core.dll
+c:\trunk\BlackBox\BlackBox.Hub\bin\Debug\BlackBox.Core.pdb
+c:\trunk\BlackBox\BlackBox.Hub\obj\Debug\BlackBox.Hub.csprojResolveAssemblyReference.cache
+c:\trunk\BlackBox\BlackBox.Hub\obj\Debug\BlackBox.Hub.dll
+c:\trunk\BlackBox\BlackBox.Hub\obj\Debug\BlackBox.Hub.pdb

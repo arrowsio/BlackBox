@@ -1,0 +1,5 @@
+c:\trunk\BlackBox\BlackBox.Server\bin\Debug\BlackBox.Server.dll
+c:\trunk\BlackBox\BlackBox.Server\bin\Debug\BlackBox.Server.pdb
+c:\trunk\BlackBox\BlackBox.Server\obj\Debug\BlackBox.Server.csprojResolveAssemblyReference.cache
+c:\trunk\BlackBox\BlackBox.Server\obj\Debug\BlackBox.Server.dll
+c:\trunk\BlackBox\BlackBox.Server\obj\Debug\BlackBox.Server.pdb

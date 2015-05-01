@@ -1,0 +1,7 @@
+c:\trunk\BlackBox\BlackBox.Tests\bin\Debug\BlackBox.Tests.exe
+c:\trunk\BlackBox\BlackBox.Tests\bin\Debug\BlackBox.Tests.pdb
+c:\trunk\BlackBox\BlackBox.Tests\obj\Debug\BlackBox.Tests.csprojResolveAssemblyReference.cache
+c:\trunk\BlackBox\BlackBox.Tests\obj\Debug\BlackBox.Tests.exe
+c:\trunk\BlackBox\BlackBox.Tests\obj\Debug\BlackBox.Tests.pdb
+c:\trunk\BlackBox\bin\Debug\BlackBox.Tests.exe
+c:\trunk\BlackBox\bin\Debug\BlackBox.Tests.pdb

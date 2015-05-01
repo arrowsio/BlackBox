@@ -1,0 +1,7 @@
+c:\trunk\BlackBox\BlackBox.Core\bin\Debug\BlackBox.Core.dll
+c:\trunk\BlackBox\BlackBox.Core\bin\Debug\BlackBox.Core.pdb
+c:\trunk\BlackBox\BlackBox.Core\obj\Debug\BlackBox.Core.csprojResolveAssemblyReference.cache
+c:\trunk\BlackBox\BlackBox.Core\obj\Debug\BlackBox.Core.dll
+c:\trunk\BlackBox\BlackBox.Core\obj\Debug\BlackBox.Core.pdb
+c:\trunk\BlackBox\bin\Debug\BlackBox.Core.dll
+c:\trunk\BlackBox\bin\Debug\BlackBox.Core.pdb
