@@ -68,7 +68,7 @@ namespace BlackBox.Core.Network
 
         public void Use(Router r)
         {
-            router = r;
+            router.Use(r);
         }
 
         public void Emit(string route, params object[] objects)

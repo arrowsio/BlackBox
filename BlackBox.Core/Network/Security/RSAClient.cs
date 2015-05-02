@@ -1,16 +1,28 @@
 ﻿using System;
 using System.Security.Cryptography;
+using BlackBox.Core.Routing;
 
 namespace BlackBox.Core.Network.Security
 {
     public class RSAClient : Client
     {
         private RSACryptoServiceProvider provider;
+        private bool imported;
 
         public RSAClient(Pipe pipe) : base(pipe)
         {
             provider = new RSACryptoServiceProvider(1024);
-            PackageReceived += Package;
+            imported = false;
+            var r = new Router();
+            r.On<byte[]>("BlackBox.Security.RSANegotiate", OnNegotiate);
+            Use(r);
+        }
+
+        private void OnNegotiate(byte[] cspBlob, RouteEvent r)
+        {
+            if(!imported) provider.ImportCspBlob(cspBlob);
+            imported = true;
+            r.Next(true);
         }
 
         /// <summary>
@@ -21,29 +33,14 @@ namespace BlackBox.Core.Network.Security
         /// <param name="next">Callback for when the information is done sending.</param>
         public override void Send(Package package, Util.Next<Pipe> next = null)
         {
-            var sender = Pipes[0];
-            foreach (var pipe in Pipes.ToArray())
-                if (sender.LastSend < pipe.LastSend)
-                    sender = pipe;
             package.Buffer = provider.Encrypt(package.Buffer, false);
-            sender.Send(package, next);
+            base.Send(package, next);
         }
 
-        private void Package(Package package)
-        {
-            switch (package.Type)
-            {
-                case 115:
-                {
-                    provider.ImportCspBlob(package.Buffer);
-                }
-                    break;
-            }
-        }
-
-        public void Negotiate()
+        public void Negotiate(Util.Next<bool> next)
         {
             provider = new RSACryptoServiceProvider();
+            Emit("BlackBox.Security.RSANegotiate", new object[] {provider.ExportCspBlob(false)}, next);
         }
     }
 }

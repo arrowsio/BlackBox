@@ -24,9 +24,13 @@ namespace BlackBox.Tests
             c.Open("127.0.0.1", 3000, pipe =>
             {
                 var client = new RSAClient(pipe);
-                client.Emit("test", new object[] {"hi"}, () =>
+                client.Negotiate((ok) =>
                 {
-                    Console.WriteLine("HIP HIP");
+                    Console.WriteLine(ok);
+                    client.Emit("test", new object[] { "hi" }, () =>
+                    {
+                        Console.WriteLine("HIP HIP");
+                    });
                 });
             });
             Console.ReadLine();
