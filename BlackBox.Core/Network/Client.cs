@@ -1,126 +1,87 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using BlackBox.Core.Data;
-using BlackBox.Core.Routing;
+﻿using System.Collections.Generic;
+using System.Linq;
+using BlackBox.Core.Events;
 
 namespace BlackBox.Core.Network
 {
-    public class Client
+    public class Client : PipeEv
     {
-        public List<Pipe> Pipes;
-        private Router router;
-        private readonly Hashtable promises;
+        public List<Pipe> Pipes = new List<Pipe>();
+        private readonly List<ClientEv> clientEvs = new List<ClientEv>();
+
+        public Client()
+        {
+            
+        }
+
+        public Client(Client baseClient)
+        {
+            Pipes = baseClient.Pipes;
+            clientEvs = baseClient.clientEvs;
+        }
 
         public Client(Pipe pipe)
         {
-            Pipes = new List<Pipe>();
-            promises = new Hashtable();
-            router = new Router();
             AddPipe(pipe);
-        }
-
-        private void HandlePackage(Package package)
-        {
-            switch (package.Type)
-            {
-                case 110:
-                {
-                    var o = Util.ToObject(package.Buffer);
-                    if (o.GetType() != typeof (Routeable)) return;
-                    router.Invoke(new RouteEvent(this, (Routeable) o));
-                }
-                    break;
-                case 111:
-                {
-                    var o = Util.ToObject(package.Buffer);
-                    if (o.GetType() != typeof(Promise)) return;
-                    var p = (Promise) o;
-                    if (promises.ContainsKey(p.Handle)) ((Delegate) promises[p.Handle]).DynamicInvoke(p.Params);
-                }
-                    break;
-                default:
-                    OnPackageReceived(package);
-                    break;
-            }
         }
 
         public void AddPipe(Pipe pipe)
         {
             Pipes.Add(pipe);
-            pipe.Disconnect += p => Pipes.Remove(p);
-            pipe.PackageReceived += HandlePackage;
+            pipe.Use(this);
         }
 
-        public virtual void Send(Package package, Util.Next<Pipe> next = null)
+        /// <summary>
+        /// Sends data.
+        /// </summary>
+        /// <param name="package">Package to send</param>
+        public virtual void Send(Package package)
         {
             var sender = Pipes[0];
-            foreach (var pipe in Pipes.ToArray())
-                if (sender.LastSend < pipe.LastSend)
-                    sender = pipe;
-            sender.Send(package, next);
+            foreach (var pipe in Pipes.ToArray().Where(pipe => sender.LastSend < pipe.LastSend))
+                sender = pipe;
+            sender.Send(package);
         }
 
-        public void Send(object obj, int type, Util.Next<Pipe> next = null)
+        /// <summary>
+        /// Attaches a new event watcher to the client.
+        /// </summary>
+        /// <param name="cEv">ClientEvent</param>
+        public void Use(ClientEv cEv)
         {
-            Send(new Package(Util.ToBytes(obj), type), next);
+            clientEvs.Add(cEv);
         }
 
-        public void Use(Router r)
+        /// <summary>
+        /// Removes an attached event watcher.
+        /// </summary>
+        /// <param name="cEv"></param>
+        public void Remove(ClientEv cEv)
         {
-            router.Use(r);
+            clientEvs.Remove(cEv);
         }
 
-        public void Emit(string route, params object[] objects)
+        internal override void OnConnect(Pipe pipe)
         {
-            Send(new Routeable {Handle = Guid.NewGuid(), Route = route, Params = objects, HasNext = false}, 110);
+            Pipes.Add(pipe);
+            foreach (var ev in clientEvs) ev.OnPipeConnect(this, pipe);
         }
 
-        public void Emit(string route, object[] objects, Delegate next)
+        internal override void OnDisconnect(Pipe pipe)
         {
-            var handle = Guid.NewGuid();
-            Send(new Routeable {Handle = handle, Route = route, Params = objects, HasNext = true}, 110);
-            promises.Add(handle, next);
+            Pipes.Remove(pipe);
+            foreach (var ev in clientEvs) ev.OnPipeDisconnect(this, pipe);
         }
 
-        public void Emit(string route, object[] objects, Util.Next next)
+        internal override void OnUpdate()
         {
-            Emit(route, objects, (Delegate)next);
+            foreach (var ev in clientEvs) ev.OnUpdate();
         }
 
-        public void Emit<T>(string route, object[] objects, Util.Next<T> next)
+        internal override void OnPackage(Pipe origin, Package package)
         {
-            Emit(route, objects, (Delegate) next);
-        }
-
-        public void Emit<T, TA>(string route, object[] objects, Util.Next<T, TA> next)
-        {
-            Emit(route, objects, (Delegate) next);
-        }
-
-        public void Emit<T, TA, TB>(string route, object[] objects, Util.Next<T, TA, TB> next)
-        {
-            Emit(route, objects, (Delegate) next);
-        }
-
-        public void Emit<T, TA, TB, TC>(string route, object[] objects, Util.Next<T, TA, TB, TC> next)
-        {
-            Emit(route, objects, (Delegate) next);
-        }
-
-        public event Util.Next<Package> PackageReceived;
-        public event Util.Next Update;
-
-        protected virtual void OnPackageReceived(Package t)
-        {
-            var handler = PackageReceived;
-            if (handler != null) handler(t);
-        }
-
-        protected virtual void OnUpdate()
-        {
-            var handler = Update;
-            if (handler != null) handler();
+            foreach (var ev in clientEvs) 
+                if(ev.OnPackage(this, package)) return;
         }
     }
 }

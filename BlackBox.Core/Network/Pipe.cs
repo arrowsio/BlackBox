@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using BlackBox.Core.Events;
 
 namespace BlackBox.Core.Network
 {
@@ -11,6 +13,8 @@ namespace BlackBox.Core.Network
         public DateTime LastReceive { get; private set; }
         public int Latency { get; private set; }
 
+        public List<PipeEv> PipeEvs = new List<PipeEv>();
+
         public readonly Guid Handle;
 
         private bool msCheck;
@@ -20,7 +24,6 @@ namespace BlackBox.Core.Network
         {
             Handle = Guid.NewGuid();
             Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp) {NoDelay = true};
-            PackageReceived += HandleBody;
         }
 
         public Pipe(Socket client) : this()
@@ -72,7 +75,8 @@ namespace BlackBox.Core.Network
             // If we are reading and were done then we can process the body of the package.
             if (package.Reading && package.Done)
             {
-                OnPackageReceived(package);
+                if(!HandleBody(package))
+                    OnPackageReceived(package); // If we didn't handle the body in the previous step then send the package up the chain.
                 package = new Package();
             }
             Socket.BeginReceive(package.Buffer, package.Received,
@@ -84,12 +88,21 @@ namespace BlackBox.Core.Network
         /// Abstraction for parsing internal actions for the packages
         /// </summary>
         /// <param name="package">Package object recieved from network</param>
-        private void HandleBody(Package package)
+        /// <returns>True if handled</returns>
+        private bool HandleBody(Package package)
         {
-            if (package.Type == 100 && package.Size == 0)
-                Send(new Package(new byte[0], 101));
-            if (package.Type == 101 && package.Size == 0)
-                OnUpdate();
+            if (package.Size != 0) return false;
+            switch (package.Type)
+            {
+                case Package.PackageType.PingReceive:
+                    Send(new Package(new byte[0], Package.PackageType.PingSend));
+                    return true;
+                case Package.PackageType.PingSend:
+                    OnUpdate();
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         /// <summary>
@@ -114,7 +127,7 @@ namespace BlackBox.Core.Network
             try
             {
                 Socket.Bind(new IPEndPoint(IPAddress.Any, port));
-                Socket.Listen(5);
+                Socket.Listen(200);
                 Socket.BeginAccept(AcceptCallback, null);
                 return true;
             }
@@ -135,7 +148,7 @@ namespace BlackBox.Core.Network
             Socket.BeginConnect(host, port, ar =>
             {
                 ConnectCallback(ar);
-                if (next != null) next(this);
+                next?.Invoke(this);
             }, new Package());
         }
 
@@ -151,7 +164,7 @@ namespace BlackBox.Core.Network
             {
                 Socket.EndSend(ar);
                 LastSend = DateTime.Now;
-                if (next != null) next(this);
+                next?.Invoke(this);
             }, null);
         }
 
@@ -172,7 +185,7 @@ namespace BlackBox.Core.Network
         public void BeginLatency()
         {
             if (msCheck) return;
-            Send(new Package(new byte[0], 100), pipe =>
+            Send(new Package(new byte[0], Package.PackageType.PingSend), pipe =>
             {
                 msCheck = true;
                 pipe.msMon = DateTime.Now;
@@ -184,36 +197,50 @@ namespace BlackBox.Core.Network
         /// </summary>
         public void HeartBeat()
         {
-            Send(new Package(new byte[0], 0));
+            Send(new Package(new byte[0]));
         }
 
-        public event Util.Next<Pipe> Connect;
-        public event Util.Next<Pipe> Disconnect;
-        public event Util.Next<Package> PackageReceived;
-        public event Util.Next Update;
+        public void Use(PipeEv pEv)
+        {
+            PipeEvs.Add(pEv);
+        }
+
+        public void Remove(PipeEv pEv)
+        {
+            PipeEvs.Remove(pEv);
+        }
 
         protected virtual void OnConnect(Pipe pipe)
         {
-            var handler = Connect;
-            if (handler != null) handler(pipe);
+            OnConnectEvent(pipe);
+            foreach (var ev in PipeEvs)
+                ev.OnConnect(this);
         }
 
         protected virtual void OnDisconnect(Pipe pipe)
         {
-            var handler = Disconnect;
-            if (handler != null) handler(pipe);
+            foreach (var ev in PipeEvs)
+                ev.OnDisconnect(this);
         }
 
         protected virtual void OnPackageReceived(Package package)
         {
-            var handler = PackageReceived;
-            if (handler != null) handler(package);
+            foreach (var ev in PipeEvs)
+                ev.OnPackage(this, package);
         }
 
         protected virtual void OnUpdate()
         {
-            var handler = Update;
-            if (handler != null) handler();
+            foreach (var ev in PipeEvs)
+                ev.OnUpdate();
+        }
+
+        public event Action<Pipe> Connect;
+
+        protected virtual void OnConnectEvent(Pipe obj)
+        {
+            var handler = Connect;
+            handler?.Invoke(obj);
         }
 
         protected bool Equals(Pipe other)
@@ -225,8 +252,7 @@ namespace BlackBox.Core.Network
         {
             if (ReferenceEquals(null, obj)) return false;
             if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
-            return Equals((Pipe) obj);
+            return obj.GetType() == this.GetType() && Equals((Pipe) obj);
         }
 
         public override int GetHashCode()

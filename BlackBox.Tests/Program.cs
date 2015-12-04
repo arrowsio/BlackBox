@@ -1,6 +1,6 @@
 ﻿using System;
+using BlackBox.Core.Misc;
 using BlackBox.Core.Network;
-using BlackBox.Core.Network.Security;
 using BlackBox.Core.Routing;
 
 namespace BlackBox.Tests
@@ -10,30 +10,25 @@ namespace BlackBox.Tests
         static void Main(string[] args)
         {
             // Master
-            var router = new Router();
-            router.On("test", (string s, RouteEvent r) =>
-            {
-                Console.WriteLine(s);
-                r.Next();
-            });
             var list = new Pipe();
-            list.Connect += pipe => new Client(pipe).Use(router);
+            var router = new Router();
+            router.On("test", (string t) =>
+            {
+                Console.WriteLine(t);
+            });
+            list.Connect += pipe =>
+            {
+                var c = new Client(pipe);
+                c.Use(router);
+            };
             list.Listen(3000);
             // Slave
-            var c = new Pipe();
-            c.Open("127.0.0.1", 3000, pipe =>
+            new Pipe().Open("127.0.0.1", 3000, pipe =>
             {
-                var client = new RSAClient(pipe);
-                client.Negotiate((ok) =>
-                {
-                    Console.WriteLine(ok);
-                    client.Emit("test", new object[] { "hi" }, () =>
-                    {
-                        Console.WriteLine("HIP HIP");
-                    });
-                });
+                var client = new Client(pipe);
+                new Emitter(client).Emit("test", "test");
             });
-            Console.ReadLine();
+            Console.ReadLine(); 
         }
     }
 }
